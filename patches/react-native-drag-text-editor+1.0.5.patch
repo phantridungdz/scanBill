@@ -1,0 +1,400 @@
+diff --git a/node_modules/react-native-drag-text-editor/src/components/dragTextEditor/DragTextEditor.tsx b/node_modules/react-native-drag-text-editor/src/components/dragTextEditor/DragTextEditor.tsx
+index 43bdd49..73be1f3 100644
+--- a/node_modules/react-native-drag-text-editor/src/components/dragTextEditor/DragTextEditor.tsx
++++ b/node_modules/react-native-drag-text-editor/src/components/dragTextEditor/DragTextEditor.tsx
+@@ -6,26 +6,23 @@ import React, {
+   useImperativeHandle,
+   useMemo,
+   useState,
++  useRef,
+ } from 'react';
+-import { Keyboard, StyleSheet, TouchableOpacity } from 'react-native';
++import { ScrollView, ImageBackground, Keyboard, StyleSheet, TouchableOpacity, Dimensions, Text, View } from 'react-native';
+ import Animated, {
+   useAnimatedGestureHandler,
+   useSharedValue,
+   useAnimatedStyle,
+   runOnJS,
+ } from 'react-native-reanimated';
+-import { PanGestureHandler } from 'react-native-gesture-handler';
++import { PanGestureHandler, PinchGestureHandler, PinchGestureHandlerGestureEvent } from 'react-native-gesture-handler';
+ import RotationSnapPoint from '../rotationSnapPoint/RotationSnapPoint';
+ import ResizerSnapPoint from '../resizerSnapPoint/ResizerSnapPoint';
+-import CustomTextInput from '../customTextInput/CustomTextInput';
+ import { RNDTInternalProvider } from '../../context/internal';
+ import { RNDTExternalProvider } from '../../context/external';
+ import {
+-  defBoxWidth,
+   defInputCoverZIndex,
+   defRotationAngle,
+-  defX,
+-  defY,
+   radian,
+   SIDES,
+   textInputLayoutDefaults,
+@@ -46,22 +43,60 @@ const DragText= forwardRef(
+       placeholder,
+       value,
+       defaultTextValue,
++      setViewShotWidth,
++      viewShotWidth,
++      viewShotHeight,
++      setViewShotHeight,
++      setRightShotView,
++      setLeftShotView,
++      topShotView,
++      bottomShotView,
++      leftShotView,
++      rightShotView,
++      setTopShotView,
++      setBottomShotView,
++      item,
++      width,
++      height,
++      defX,
++      defY,
+       visible = true,
+-      onChangeText,
+       onBlur,
+       onItemActive,
+     }:DragTextPropTypes,
+     ref: Ref<DragTextRef>
++    // = useRNDTExternal();
+   ) => {
++    // const { isResize } = useRNDTInternal();
++    const testRef = useRef<any>(null);
+     const x = useSharedValue<number>(defX);
+     const y = useSharedValue<number>(defY);
+-    const boxWidth = useSharedValue<number>(defBoxWidth);
++    const boxWidth = useSharedValue<number>(width);
++    const boxHeight = useSharedValue<number>(height);
++    const scale = useSharedValue(1);
+     const rotationAngle = useSharedValue<number>(defRotationAngle);
+     const [inputCoverZIndex, _setInputCoverZIndex] =
+-      useState(defInputCoverZIndex);
++    useState(defInputCoverZIndex);
++    const [heightBox, setHeightBox] = useState<number>(height);
++    const [widthBox, setWidthBox] = useState<number>(width);
+     const isResize = useSharedValue<boolean>(false);
+-    const borderStatus = useSharedValue<boolean>(true);
++    const borderStatus = useSharedValue<boolean>(false);
+     const textInputLayout = textInputLayoutDefaults;
++    const [testPoint, setTestPoint] = useState({top: 0, right: 0, left: 0, bottom: 0});
++    const zoom = useAnimatedGestureHandler<PinchGestureHandlerGestureEvent>({
++      onStart: (event, ctx: any) => {
++        // ctx.start = true;
++        scale.value = event.scale;
++        console.log(event)
++      },
++      onActive: (event, _) => {
++        // console.log('onActive Zoom')
++        scale.value = event.scale;
++      },
++      onEnd: (event, _) => {
++        scale.value = event.scale;
++      },
++    });
+ 
+     const onStartRoutine = () => {
+       Keyboard.dismiss();
+@@ -71,23 +106,93 @@ const DragText= forwardRef(
+     const onEndRoutine = () => {
+       _setInputCoverZIndex(defInputCoverZIndex);
+     };
+-
+     const dragHandler = useAnimatedGestureHandler({
+       onStart: (_ev: any, ctx: any) => {
+-        runOnJS(onStartRoutine)();
+-        borderStatus.value = true;
+-        ctx.startX = x.value;
+-        ctx.startY = y.value;
++        // ...
++        if (!borderStatus.value) {
++          borderStatus.value = true;
++          ctx.startX = x.value;
++          ctx.startY = y.value;
++          ctx.startTopShotView = topShotView;
++          ctx.startBottomShotView = bottomShotView;
++          ctx.startLeftShotView = leftShotView;
++          ctx.startRightShotView = rightShotView;
++          console.log(topShotView, bottomShotView, leftShotView, rightShotView);
++          setTestPoint({top: topShotView, right: rightShotView, left: leftShotView, bottom: bottomShotView})
++        } else {
++          borderStatus.value = false;
++        }
+       },
+       onActive: (_ev: any, ctx: any) => {
+-        if (borderStatus.value) {
++        
++        if (!borderStatus.value) {
++          // console.log(runOnJS(ctx));
++          const deltaY = y.value - ctx.startY;
++          const deltaX = x.value - ctx.startX;
++      
+           y.value = ctx.startY + _ev.translationY;
+           x.value = ctx.startX + _ev.translationX;
++      
++          if (deltaY > 0) {
++            runOnJS(setBottomShotView)(ctx.startBottomShotView - deltaY);
++            runOnJS(setTopShotView)(ctx.startTopShotView);
++          } else if (deltaY < 0) {
++            runOnJS(setBottomShotView)(ctx.startBottomShotView);
++            runOnJS(setTopShotView)(ctx.startTopShotView + deltaY);
++          } else {
++            runOnJS(setBottomShotView)(ctx.startBottomShotView);
++            runOnJS(setTopShotView)(ctx.startTopShotView);
++          }
++      
++          if (deltaX > 0) {
++            runOnJS(setRightShotView)(ctx.startRightShotView - deltaX);
++            runOnJS(setLeftShotView)(ctx.startLeftShotView);
++          } else if (deltaX < 0) {
++            runOnJS(setRightShotView)(ctx.startRightShotView);
++            runOnJS(setLeftShotView)(ctx.startLeftShotView + deltaX);
++          } else {
++            runOnJS(setRightShotView)(ctx.startRightShotView);
++            runOnJS(setLeftShotView)(ctx.startLeftShotView);
++          }
+         }
+       },
+-      onEnd: () => {
++      onEnd: (_ev: any, ctx: any) => {
+         runOnJS(onEndRoutine)();
+-        borderStatus.value = false;
++        // runOnJS( setTopShotView)(y.value);
++
++
++
++
++
++
++        // if(ctx.startY < 0){
++        //   runOnJS(setTopShotView)(y.value);
++        // }
++        // if(ctx.startY > 0){
++        //   runOnJS(setBottomShotView)(-(y.value));
++        // }
++
++        // if(ctx.startX > 0){
++        //   runOnJS(setRightShotView)(x.value);
++        // }
++        // if(ctx.startX < 0){
++        //   runOnJS(setLeftShotView)(-x.value);
++        // }
++        // console.log('ctx: ' , ctx)
++        console.log('ctx.startY: ' , ctx.startY)
++        console.log('ctx.startX: ' , ctx.startX)
++        console.log('y: ' , y.value)
++        console.log('x: ' , x.value)
++        // if(ctx.startY > 0){
++        //   runOnJS(setViewShotHeight)(viewShotHeight + (_ev.translationY));
++
++        // } else {
++        //   runOnJS(setViewShotHeight)(viewShotHeight - (_ev.translationY));
++        // }
++        // runOnJS(setViewShotWidth)(viewShotWidth + _ev.translationX);
++        // borderStatus.value = false;
++      },
++      onFail(event, context) {
+       },
+     });
+ 
+@@ -106,7 +211,6 @@ const DragText= forwardRef(
+         externalBorderStyles,
+         rotationComponent,
+         placeholder,
+-        onChangeText,
+         defaultTextValue,
+         blurOnSubmit,
+         value,
+@@ -119,7 +223,6 @@ const DragText= forwardRef(
+         externalBorderStyles,
+         rotationComponent,
+         placeholder,
+-        onChangeText,
+         defaultTextValue,
+         blurOnSubmit,
+         value,
+@@ -132,28 +235,39 @@ const DragText= forwardRef(
+         x,
+         y,
+         boxWidth,
++        boxHeight,
+         rotationAngle,
+         isResize,
+         textInputLayout,
+         borderStatus,
+       }),
+-      [x, y, boxWidth, isResize, textInputLayout, rotationAngle, borderStatus]
++      [x, y, boxWidth, boxHeight, isResize, textInputLayout, rotationAngle, borderStatus]
+     );
+     
++
+     const animatedDragStyles = useAnimatedStyle(
+-      () => ({
+-        transform: [{ translateX: x.value }, { translateY: y.value }],
+-        width: boxWidth.value,
+-        display: visible ? 'flex' : 'none',
+-      }),
+-      [x, y, boxWidth, visible]
++      () => {
++        const scaleDC = width / boxWidth.value;
++        runOnJS(setHeightBox)(boxHeight.value / scaleDC);
++        runOnJS(setWidthBox)(boxWidth.value);
++        return ({
++          transform: [{ translateX: x.value }, { translateY: y.value }],
++          width: boxWidth.value,
++          height: boxHeight.value / scaleDC,
++          display: visible ? 'flex' : 'none',
++          // backgroundColor: 'red',
++        });
++      },
++      [x, y, boxWidth, boxHeight, visible]
+     );
+ 
+     const animatedRotationStyles = useAnimatedStyle(
+-      () => ({
+-        transform: [{ rotateZ: rotationAngle.value + radian }],
+-        borderWidth: borderStatus.value ? 1 : 0,
+-      }),
++      () => {
++        return ({
++          transform: [{ rotateZ: rotationAngle.value + radian }],
++          borderWidth: borderStatus.value ? 1 : 0,
++        });
++      },
+       [rotationAngle, borderStatus]
+     );
+ 
+@@ -170,7 +284,7 @@ const DragText= forwardRef(
+ 
+     const _resizerSnapPoint = useCallback(
+       (sides: SIDES | string, i: number) => (
+-        <ResizerSnapPoint side={sides} key={i} />
++        <ResizerSnapPoint side={sides} key={i} setHeightBox={setHeightBox} />
+       ),
+       []
+     );
+@@ -178,33 +292,62 @@ const DragText= forwardRef(
+     return (
+       <RNDTExternalProvider value={externalContextVariables}>
+         <RNDTInternalProvider value={internalContextVariables}>
+-          <PanGestureHandler onGestureEvent={dragHandler}>
+-            <Animated.View style={[animatedDragStyles, styles.dragContainer]}>
+-              <Animated.View
+-                style={[
+-                  animatedRotationStyles,
+-                  styles.rotationStyles,
+-                  externalBorderStyles,
+-                ]}
+-              >
+-                {rotationComponent && (
+-                  <RotationSnapPoint
+-                    side={rotationComponent.side}
+-                    customRotationComponent={
+-                      rotationComponent.customRotationComponent
+-                    }
+-                  />
+-                )}
+-                {cornerComponents?.map(_cornerComponent)}
+-                {resizerSnapPoints?.map(_resizerSnapPoint)}
+-                <TouchableOpacity
+-                  onPress={() => _setInputCoverZIndex(0)}
+-                  style={[styles.inputCoverStyle, { zIndex: inputCoverZIndex }]}
+-                />
+-                <CustomTextInput />
+-              </Animated.View>
++          <PinchGestureHandler onGestureEvent={zoom}>
++            <Animated.View
++              style={[
++                useAnimatedStyle(() => ({
++                  transform: [
++                    { scale: scale.value },
++                  ],
++                })),
++            ]}>
++            
++              <PanGestureHandler onGestureEvent={dragHandler}>
++                <Animated.View style={[animatedDragStyles, styles.dragContainer]}>
++                  <Animated.View
++                    style={[
++                      animatedRotationStyles,
++                      styles.rotationStyles,
++                      externalBorderStyles,
++                      { 
++                        padding: 10,
++                        height: heightBox,
++                        width: widthBox,
++                    }]}
++                  >
++                    {rotationComponent && (
++                      <RotationSnapPoint
++                        side={rotationComponent.side}
++                        customRotationComponent={
++                          rotationComponent.customRotationComponent
++                        }
++                      />
++                    )}
++                    {cornerComponents?.map(_cornerComponent)}
++                    {resizerSnapPoints?.map(_resizerSnapPoint)}
++                    <TouchableOpacity
++                      onPress={() => _setInputCoverZIndex(-1)}
++                      style={[styles.inputCoverStyle, { zIndex: inputCoverZIndex }]}
++                    />
++                    <ImageBackground
++                    ref={testRef} 
++                        style={[styles.inputCoverStyle,{
++                          zIndex: inputCoverZIndex,
++                          // width: 100,
++                        }]}
++                        resizeMode="cover"
++                        source={{uri: item?.path ? item.path : ''}}>
++                    </ImageBackground>
++                    <View style={{
++                      position: 'absolute',
++                      top: testPoint.top,
++                      left: testPoint.left,
++                    }}><Text>A</Text></View>
++                  </Animated.View>
++                </Animated.View>
++              </PanGestureHandler>
+             </Animated.View>
+-          </PanGestureHandler>
++          </PinchGestureHandler>
+         </RNDTInternalProvider>
+       </RNDTExternalProvider>
+     );
+diff --git a/node_modules/react-native-drag-text-editor/src/components/dragTextEditor/types.d.ts b/node_modules/react-native-drag-text-editor/src/components/dragTextEditor/types.d.ts
+index e25301e..fe7f708 100644
+--- a/node_modules/react-native-drag-text-editor/src/components/dragTextEditor/types.d.ts
++++ b/node_modules/react-native-drag-text-editor/src/components/dragTextEditor/types.d.ts
+@@ -1,3 +1,4 @@
++import { ImageInterface } from './../../../../../src/screens/types.d';
+ import { CornerComponentProps } from '../cornerComponent/types';
+ import { StyleProp, TextStyle, ViewStyle } from 'react-native';
+ import { rotationComponentPropTypes } from '../rotationSnapPoint/types';
+@@ -55,4 +56,24 @@ export interface DragTextPropTypes {
+   externalBorderStyles?: StyleProp<ViewStyle>;
+   placeholder?: string;
+   defaultTextValue?: string;
++  width:number;
++  height:number;
++  defX:any;
++  defY:any;
++  item:ImageInterface;
++  scrollViewRef?: React.RefObject<ScrollView>;
++  scaleParentZoom:number;
++  setViewShotHeight: any;
++  setViewShotWidth: any;
++  setTopShotView: any;
++  setBottomShotView: any;
++  setRightShotView: any;
++  setLeftShotView: any;
++  viewShotWidth: number;
++  viewShotHeight: number;
++  topShotView: number;
++  rightShotView: number;
++  leftShotView: number;
++  bottomShotView: number;
++
+ }

@@ -7,6 +7,7 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
+    "postinstall": "patch-package",
     "test": "jest"
   },
   "dependencies": {
@@ -21,11 +22,11 @@
     "fbjs": "^3.0.5",
     "nativewind": "^2.0.11",
     "npm": "^9.7.2",
+    "patch-package": "^8.0.0",
     "react": "18.2.0",
     "react-native": "0.71.10",
     "react-native-camera": "^4.2.1",
     "react-native-drag-text-editor": "^1.0.5",
-    "react-native-auto-resize": "^1.0.0",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.10.2",
     "react-native-image-crop-picker": "^0.40.0",
