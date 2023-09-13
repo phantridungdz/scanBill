@@ -1,6 +1,6 @@
 node_modules
-/android
-/ios
+android/app/build/outputs/apk/debug/app-debug.apk
+ios/Pods
 yarn-error.log
 !**/*.xcodeproj
 !**/*.pbxproj
